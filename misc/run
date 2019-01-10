@@ -1,0 +1,4 @@
+#!/bin/bash
+cd "$PROJECT_PATH"/code
+../build/cge
+cd -

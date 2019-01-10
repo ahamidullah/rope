@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -e
+
+dolphin "$PROJECT_PATH" >& /dev/null &

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+cd $PROJECT_PATH/code
+
+gdb ../build/cge
+

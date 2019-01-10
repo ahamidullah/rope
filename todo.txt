@@ -1,0 +1,63 @@
+- Debug render text.
+- Editor and level format.
+- Debug ui and visuals.
+- Command prompt.
+- Tweak file.
+- Change the textures to sprites(?) in the asset system.
+- Some kind of zoom.
+- Animations.
+- Have player face correct direction.
+- Jump cooldown.
+- Enforce max rope length
+	- Set the rope length to exactly max length when we go over.
+	- Make the rope length respond to changes in player's position.
+- Slide vs vault when displacement is small?
+- Different representation of Rectangle for certain parts of the program.
+	- A lot of recalculations for upper-left, upper-right, lower-left corners.
+	- Might be worse for general colliders b/c of cache. For players?
+- Jump press timing wiggle room.
+	- Jump some time after running off ledge still registers as a jump even though no grounded.
+	- Jump some time before landing still does a jump when landed.
+- Cleanup debug stuff.
+- Animate the ledge grab.
+	- Have the player interpolate to the ledge grab position.
+	- Some kind of grabbing animation for the movement?
+
++ Camera that follows player.
++ Pull in / let out rope while attached.
++ Nice camera that moves smoothly.
++ Change debug to use meters instead of pixels.
++ Change textures to scale properly with window size.
++ Better movement:
+	+ Some kind of acceleration/decceleration when moving/stopping.
++ Grab ledges.
++ Handle alpha correctly.
++ Fix the rope start position.
+
+Ideas:
+- Grapple to the floor, run, then fling.
+- Jump and then turn around and grapple to something.
+- Controlling bounce by letting out/in more line.
+- Add dash and chain them together.
+- Timed area - have to push a switch and make it through a door before it closes.
+- Dash, slide, wall jump?
+- Area where walls cause death.
+- Low gravity, switched gravity direction.
+- Speed from rope / dash persists during run until player stops.
+- Pushing buttons down.
+- Barrier that your hook can't go through.
+- Running in against the rope and then releasing to fling.
+- Lava. Jump too long, but can't grapple to destination corner b/c of lava, so forced to fling.
+- Vertical scaling.
+- Forced to hook backwards due to double spikes.
+            ^^^^^^^^^^^
+            |
+            ___________
+
+^^^^^^^^>   
+            
+
+            -----------
+
+- Have to pull down a block on top of some kind of boss enemy.
+

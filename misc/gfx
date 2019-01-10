@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+cd "$PROJECT_PATH"/data/sprites
+kstart --maximize aseprite >& /dev/null &
