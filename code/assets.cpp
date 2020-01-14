@@ -398,8 +398,14 @@ load_ase(const char *asset_path)
 	sprintf(aseprite_gen_command, "aseprite -b --data %s/%s_collider.json --trim --ignore-empty --layer collider %s", json_directory, base_name, asset_path);
 	system(aseprite_gen_command);
 
-	add_load_texture_job(texture_directory, base_name);
-	add_load_sprite_job(json_directory, base_name);
+	//add_load_texture_job(texture_directory, base_name);
+	//add_load_sprite_job(json_directory, base_name);
+	char b1[256], b2[256], b3[256];
+	sprintf(b1, "%s/%s.png", texture_directory, base_name);
+	load_texture(b1, base_name);
+	sprintf(b1, "%s/%s.json", json_directory, base_name);
+	sprintf(b2, "%s/%s_collider.json", json_directory, base_name);
+	load_sprite(b1, b2, base_name);
 }
 
 void
@@ -427,6 +433,7 @@ init_assets()
 	load_asset_file("../data/sprites/player.ase");
 	load_asset_file("../data/sprites/tiles.ase");
 
+	/*
 	u32 num_asset_loads_queued = 4;
 
 	extern Job_Queue job_queue;
@@ -434,5 +441,6 @@ init_assets()
 
 	while (job_queue.num_jobs_completed < num_asset_loads_queued) {
 	}
+	*/
 }
 

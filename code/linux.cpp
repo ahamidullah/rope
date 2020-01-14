@@ -145,7 +145,7 @@ u32_min(u32 a, u32 b)
 
 int context_attribs[] = {
 	GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
-	GLX_CONTEXT_MINOR_VERSION_ARB, 1,
+	GLX_CONTEXT_MINOR_VERSION_ARB, 2,
 	GLX_CONTEXT_PROFILE_MASK_ARB,  GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
 	None
 };
@@ -171,9 +171,32 @@ platform_make_job_thread_opengl_context()
 	return gl_thread_context;
 }
 
-GLXContext
-platform_init_opengl_context()
+void *job_thread_start(void *job_thread_data);
+
+Thread_Handle platform_create_thread(Thread_Procedure tp, void *thread_argument);
+
+void platform_toggle_fullscreen();
+
+void *get_job_queue();
+
+int
+main(int, char **)
 {
+	// Install a new error handler.
+	// Note this error handler is global.  All display connections in all threads of a process use the same error handler.
+	int (*old_x11_error_handler)(Display*, XErrorEvent*) = XSetErrorHandler(&x11_error_handler);
+
+	Extent2D<u32> initial_window_dimensions = { 1920, 1080 };
+
+	srand(time(0));
+
+	XInitThreads();
+	linux_context.display = XOpenDisplay(NULL);
+	if (!linux_context.display)
+		_abort("Failed to create display.");
+
+	int xscreen = XDefaultScreen(linux_context.display);
+
 	// Choose a framebuffer configuration.
 	int buffer_attribs[] = {
 		GLX_X_RENDERABLE    , True,
@@ -191,7 +214,7 @@ platform_init_opengl_context()
 	};
 
 	int num_fbconfigs = 0;
-	GLXFBConfig *fbconfigs = glXChooseFBConfig(linux_context.display, XDefaultScreen(linux_context.display), buffer_attribs, &num_fbconfigs);
+	GLXFBConfig *fbconfigs = glXChooseFBConfig(linux_context.display, xscreen, buffer_attribs, &num_fbconfigs);
 	if (!fbconfigs)
 		_abort("Failed to retrieve frame buffer configurations.");
 
@@ -214,6 +237,7 @@ platform_init_opengl_context()
 	}
 
 	framebuffer_config = fbconfigs[0]; // @TEMP
+	XVisualInfo *visual_info = glXGetVisualFromFBConfig(linux_context.display, fbconfigs[0]); // @TEMP
 	XFree(fbconfigs);
 
 	int major_ver, minor_ver;
@@ -222,7 +246,52 @@ platform_init_opengl_context()
 	if ((major_ver == 1 && minor_ver < 3) || major_ver < 1)
 		_abort("GLX version is too old.");
 
-	const char *gl_exts = glXQueryExtensionsString(linux_context.display, XDefaultScreen(linux_context.display));
+	Window root_window = XRootWindow(linux_context.display, visual_info->screen);
+	XSetWindowAttributes win_attribs;
+	win_attribs.colormap = XCreateColormap(linux_context.display, root_window, visual_info->visual, AllocNone);
+	win_attribs.background_pixel = 0xFFFFFFFF;
+	win_attribs.border_pixmap    = None;
+	win_attribs.border_pixel     = 0;
+	win_attribs.event_mask       = StructureNotifyMask
+	                             | FocusChangeMask
+	                             | EnterWindowMask
+	                             | LeaveWindowMask
+	                             | ExposureMask
+	                             | ButtonPressMask
+	                             | ButtonReleaseMask
+	                             | OwnerGrabButtonMask
+	                             | KeyPressMask
+	                             | KeyReleaseMask;
+
+	int win_attribs_mask = CWBackPixel
+	                     | CWColormap
+	                     | CWBorderPixel
+	                     | CWEventMask;
+
+	assert(visual_info->c_class == TrueColor);
+
+	linux_context.window = XCreateWindow(linux_context.display,
+	                                     root_window,
+	                                     0,
+	                                     0,
+	                                     1920,
+	                                     1080,
+	                                     0,
+	                                     visual_info->depth,
+	                                     InputOutput,
+	                                     visual_info->visual,
+	                                     win_attribs_mask,
+	                                     &win_attribs);
+
+	if (!linux_context.window)
+		_abort("Failed to create a window.");
+
+	XFree(visual_info);
+
+	XStoreName(linux_context.display, linux_context.window, "cge");
+	XMapWindow(linux_context.display, linux_context.window);
+
+	const char *gl_exts = glXQueryExtensionsString(linux_context.display, xscreen);
 	if (!is_ext_supported(gl_exts, "GLX_ARB_create_context"))
 		_abort("OpenGL does not support glXCreateContextAttribsARB extension.");
 
@@ -232,13 +301,13 @@ platform_init_opengl_context()
 		_exit(EXIT_FAILURE);
 	}
 
-	auto gl_context = glXCreateContextAttribsARB(linux_context.display, framebuffer_config, 0, True, context_attribs);
+	linux_context.gl_context = glXCreateContextAttribsARB(linux_context.display, framebuffer_config, 0, True, context_attribs);
 
 	XSync(linux_context.display, False);
-	if (x11_error_occured || !gl_context)
+	if (x11_error_occured || !linux_context.gl_context)
 		_abort("Failed to create OpenGL context.");
 
-	if (!glXMakeCurrent(linux_context.display, linux_context.window, gl_context)) {
+	if (!glXMakeCurrent(linux_context.display, linux_context.window, linux_context.gl_context)) {
 		_abort("Could not call glXMakeCurrent on the main thread OpenGL context.");
 	}
 
@@ -268,88 +337,6 @@ platform_init_opengl_context()
 		else
 			log_print(CRITICAL_ERROR_LOG, "Could not load glXSwapIntervalSGI().");
 	}
-
-	return gl_context;
-}
-
-void *job_thread_start(void *job_thread_data);
-
-Thread_Handle platform_create_thread(Thread_Procedure tp, void *thread_argument);
-
-void platform_toggle_fullscreen();
-
-void *get_job_queue();
-
-int
-main(int, char **)
-{
-	// Install a new error handler.
-	// Note this error handler is global.  All display connections in all threads of a process use the same error handler.
-	int (*old_x11_error_handler)(Display*, XErrorEvent*) = XSetErrorHandler(&x11_error_handler);
-
-	Extent2D<u32> initial_window_dimensions = { 1920, 1080 };
-
-	srand(time(0));
-
-	XInitThreads();
-	linux_context.display = XOpenDisplay(NULL);
-	if (!linux_context.display)
-		_abort("Failed to create display.");
-
-	int xscreen = XDefaultScreen(linux_context.display);
-
-	XVisualInfo *visual_info = NULL;
-	long visual_mask = VisualScreenMask;
-	int number_of_visuals;
-	XVisualInfo visual_info_template = {};
-	visual_info_template.screen = xscreen;
-
-	visual_info = XGetVisualInfo(linux_context.display, visual_mask, &visual_info_template, &number_of_visuals);
-
-	Window root_window = XRootWindow(linux_context.display, xscreen);
-	XSetWindowAttributes win_attribs;
-	win_attribs.colormap = XCreateColormap(linux_context.display, root_window, visual_info->visual, AllocNone);
-	win_attribs.background_pixel = 0xFFFFFFFF;
-	win_attribs.border_pixmap    = None;
-	win_attribs.border_pixel     = 0;
-	win_attribs.event_mask       = StructureNotifyMask
-	                             | FocusChangeMask
-	                             | EnterWindowMask
-	                             | LeaveWindowMask
-	                             | ExposureMask
-	                             | ButtonPressMask
-	                             | ButtonReleaseMask
-	                             | OwnerGrabButtonMask
-	                             | KeyPressMask
-	                             | KeyReleaseMask;
-
-	int win_attribs_mask = CWBackPixel
-	                     | CWColormap
-	                     | CWBorderPixel
-	                     | CWEventMask;
-
-	assert(visual_info->c_class == TrueColor);
-
-	linux_context.window = XCreateWindow(linux_context.display,
-	                                     root_window,
-	                                     0,
-	                                     0,
-	                                     initial_window_dimensions.width,
-	                                     initial_window_dimensions.height,
-	                                     0,
-	                                     visual_info->depth,
-	                                     InputOutput,
-	                                     visual_info->visual,
-	                                     win_attribs_mask,
-	                                     &win_attribs);
-
-	if (!linux_context.window)
-		_abort("Failed to create a window.");
-
-	XFree(visual_info);
-
-	XStoreName(linux_context.display, linux_context.window, "cge");
-	XMapWindow(linux_context.display, linux_context.window);
 
 	//platform_toggle_fullscreen();
 
@@ -386,8 +373,6 @@ main(int, char **)
 	       "Window pixel: %u %u\n"
 	       "Window meter: %.9g %.9g\n\n",
 	       pixels_per_meter, meters_per_pixel, scale, scaled_meters_per_pixel, reference_window_width, reference_window_height, window_pixel_width, window_pixel_height, window_scaled_meter_width, window_scaled_meter_height);
-
-	linux_context.gl_context = platform_init_opengl_context();
 
 	for (u32 i = 0; i < NUM_JOB_THREADS; ++i) {
 		platform_create_thread(job_thread_start, get_job_queue());

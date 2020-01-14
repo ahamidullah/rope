@@ -1346,7 +1346,6 @@ application_entry()
 
 	// @TODO: Figure out what to do if vsync is not enabled!
 
-			try_next_sprite_frame(&game_state.player.sprite);
 	while(state != PROGRAM_STATE_EXITING) {
 		state = platform_handle_events(&input, state);
 
@@ -1369,7 +1368,7 @@ application_entry()
 		if (state == PROGRAM_STATE_RUNNING) {
 			update(input, &game_state);
 
-			//try_next_sprite_frame(&game_state.player.sprite);
+			try_next_sprite_frame(&game_state.player.sprite);
 		}
 
 		state = debug_update(input, &game_state);

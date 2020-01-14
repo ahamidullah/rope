@@ -1,3 +1,11 @@
+typedef void (APIENTRY *DEBUGPROC)(GLenum source,
+	GLenum type,
+	GLuint id,
+	GLenum severity,
+	GLsizei length,
+	const GLchar *message,
+	const void *userParam);
+
 #define DEFINEPROC
 #include "opengl_functions.h"
 #undef DEFINEPROC
@@ -243,7 +251,26 @@ add_sprite_render_commands(Sprite_Instance s, V2 world_position, V2 view_vector)
 
 	auto f = sprite_data->frames[s.current_frame];
 
+	if (strcmp(s.name, "player_run") == 0) {
+		printf("%d %f %f %f %f\n", s.current_frame, f.texture_scissor.x, f.texture_scissor.y, f.texture_scissor.w, f.texture_scissor.h);
+	}
+
 	add_quad_render_commands(sprite_data->texture_name, f.meter_width, f.meter_height, f.texture_scissor, world_position + f.meter_offset, view_vector);
+}
+
+void GLAPIENTRY
+gl_debug_message_callback( GLenum source,
+                 GLenum type,
+                 GLuint id,
+                 GLenum severity,
+                 GLsizei length,
+                 const GLchar* message,
+                 const void* userParam )
+{
+	if (type != GL_DEBUG_TYPE_ERROR) {
+		return;
+	}
+	_abort("** GL ERROR ** type: 0x%x, severity: 0x%x, message: %s\n", type, severity, message);
 }
 
 void
@@ -254,11 +281,15 @@ render_init()
 #include "opengl_functions.h"
 #undef LOADPROC
 
+	glEnable(GL_DEBUG_OUTPUT);
+	glDebugMessageCallback(gl_debug_message_callback, 0);
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthFunc(GL_LEQUAL);
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, window_pixel_width, window_pixel_height);
 
 	Memory_Arena init_arena = mem_make_arena();
@@ -300,30 +331,6 @@ submit_render_commands_and_swap_backbuffer()
 		}
 
 		render_commands.clear();
-
-		GLenum err;
-		while ((err = glGetError()) != GL_NO_ERROR) {
-			if (err == GL_INVALID_ENUM)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: Invalid enum.");
-			if (err == GL_INVALID_VALUE)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: Invalid value.");
-			if (err == GL_INVALID_OPERATION)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: Invalid operation.");
-			if (err == GL_STACK_OVERFLOW)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: Stack overflow.");
-			if (err == GL_STACK_UNDERFLOW)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: Stack underflow.");
-			if (err == GL_OUT_OF_MEMORY)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: Out of memory.");
-			if (err == GL_INVALID_FRAMEBUFFER_OPERATION)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: Invalid framebuffer operation.");
-			if (err == GL_CONTEXT_LOST)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: GL context lost due to a graphics card reset.");
-			if (err == GL_TABLE_TOO_LARGE)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: Table too large. (This error was removed in OpenGl 3.1.)");
-			if (err == 0)
-				log_print(MAJOR_ERROR_LOG, "Opengl error: glGetError() failed.");
-		}
 	}
 
 	// Render debug.

@@ -59,6 +59,9 @@ GLPROC(glGetProgramInfoLog, void, GLuint, GLsizei, GLsizei *, GLchar *);
 GLPROC(glUseProgram,    void,   GLuint);
 GLPROC(glGenerateMipmap, void, GLenum);
 GLPROC(glDeleteBuffers, void, GLsizei, const GLuint *);
+GLPROC(glCheckFramebufferStatus, GLenum, GLenum);
+GLPROC(glDebugMessageCallback, void, DEBUGPROC, const void *);
+
 //
 //GLPROC(glGetTextures, void, GLsizei, GLuint *);
 //GLPROC(glTexImage2d, void, GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const GLvoid *);
